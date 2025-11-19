@@ -1,15 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 function LinkForm({ onAdded }) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [labels, setLabels] = useState('')
-  const [addedBy, setAddedBy] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [user, setUser] = useState(null)
 
   const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('devlinks:user')
+      if (raw) setUser(JSON.parse(raw))
+    } catch {}
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -21,7 +28,7 @@ function LinkForm({ onAdded }) {
         title,
         url,
         labels: labels.split(',').map(l => l.trim()).filter(Boolean),
-        added_by: addedBy || 'anonymous',
+        added_by: user?.name || 'anonymous',
         description: description || undefined,
       }
       const res = await fetch(`${baseUrl}/links`, {
@@ -29,13 +36,15 @@ function LinkForm({ onAdded }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      if (!res.ok) throw new Error('Failed to add link')
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(errText || 'Failed to add link')
+      }
       const data = await res.json()
       onAdded?.(data)
       setTitle('')
       setUrl('')
       setLabels('')
-      setAddedBy('')
       setDescription('')
     } catch (err) {
       setError(err.message)
@@ -60,10 +69,6 @@ function LinkForm({ onAdded }) {
         <div>
           <label className="block text-sm text-blue-100 mb-1">Labels (comma-separated)</label>
           <input value={labels} onChange={e=>setLabels(e.target.value)} className="w-full rounded-lg bg-slate-900/60 border border-white/10 px-3 py-2 text-white outline-none focus:border-blue-500/60" placeholder="CSS, SVG, Backend" />
-        </div>
-        <div>
-          <label className="block text-sm text-blue-100 mb-1">Your name</label>
-          <input value={addedBy} onChange={e=>setAddedBy(e.target.value)} className="w-full rounded-lg bg-slate-900/60 border border-white/10 px-3 py-2 text-white outline-none focus:border-blue-500/60" placeholder="Who added this?" />
         </div>
       </div>
       <div>
